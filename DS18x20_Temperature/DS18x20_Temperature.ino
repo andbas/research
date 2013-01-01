@@ -2,7 +2,7 @@
 
 byte wirePin = 8;
 
-OneWire ds(wirePin);  
+OneWire  ds(wirePin);
 
 void setup(void) {
   Serial.begin(9600);
@@ -10,7 +10,6 @@ void setup(void) {
 
 void loop(void) {
   byte addr[8];
-
   if ( !ds.search(addr)) {
     Serial.println("No more addresses.");
     Serial.println();
@@ -18,7 +17,7 @@ void loop(void) {
     delay(250);
     return;
   }
-  
+
   byte i;
   Serial.print("ROM =");
   for( i = 0; i < 8; i++) {
@@ -27,51 +26,46 @@ void loop(void) {
   }
 
   if (OneWire::crc8(addr, 7) != addr[7]) {
-    Serial.println("CRC is not valid!");
-    return;
+      Serial.println("CRC is not valid!");
+      return;
   }
   Serial.println();
-  
-  if (addr[0] == 0x28){
-    Serial.println("  Chip = DS18B20");
-  }else {
-    Serial.println("Device is not a DS18B20 chip");
+ 
+  if (addr[0]==0x10){
+    Serial.println("  Chip = DS18S20");
+  } else {
+    Serial.println("Device is not a DS18S20.");
     return;
   }
   
   ds.reset();
   ds.select(addr);
-  ds.write(0x44);
-
-  while(digitalRead(wirePin) == 0){
-    delay(50);
-  }
+  ds.write(0x44);        
   
+  delay(750);
+
   ds.reset();
   ds.select(addr);    
-  ds.write(0xBE);
-
+  ds.write(0xBE);     
+  
   byte data[9];
+  Serial.print("  Data = ");
   for ( i = 0; i < 9; i++) {
     data[i] = ds.read();
     Serial.print(data[i], HEX);
     Serial.print(" ");
   }
-  Serial.print(" CRC=");
-  Serial.print(OneWire::crc8(data, 8), HEX);
-  Serial.println();
-
-  unsigned int raw = (data[1] << 8) | data[0];
-  byte cfg = (data[4] & 0x60);
-  if (cfg == 0x00) raw = raw << 3;
-  else if (cfg == 0x20) raw = raw << 2;
-  else if (cfg == 0x40) raw = raw << 1;
+  
+  if (OneWire::crc8(data, 8) != data[8]) {
+      Serial.println("Data CRC is not valid!");
+      return;
+  }
+  
+  int16_t raw = (((int16_t)data[1]) << 8) | data[0];
   
   float celsius, fahrenheit;
-  
-  
-  
-  celsius = (float)raw / 16.0;
+  celsius = (float)(raw >> 1) - 0.25 + 
+            ((float)(data[7] - data[6]) / (float)data[7] );
   fahrenheit = celsius * 1.8 + 32.0;
   
   Serial.print("  Temperature = ");
